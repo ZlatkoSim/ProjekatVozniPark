@@ -17,8 +17,8 @@ class RadniNalogBase(BaseModel):
     datum_i_vrijeme_izdavanja: datetime
     rok_zavrsavanja: datetime
     status: StatusRadnogNalogaEnum
-    vozilo: VoziloOut
-    vozac: VozacOut
+    vozilo: VoziloOut  
+    vozac: VozacOut 
 
 class RadniNalogCreate(BaseModel):
     vozilo_id: int
