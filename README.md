@@ -3,7 +3,7 @@
 
 # UVOD
 
-Projekat “Vozni park” predstavlja sistem evidencije  podataka o vozilima, vozačima i radnim nalozima koji omogućava efikasno vođenje i upravljanje tim podacima. Ovaj sistem je razvijen koristeći Visual Studio Code kao razvojno okruženje, a implementacija se zasniva na kombinaciji više tehnologija, uključujući Python I FastAPI za razvoj backend-a i HTML, CSS i JavaScript za frontend.
+Kao studenti završne godine Fakulteta Poslovne ekonomije imali smo predmet “Projektovanje informacionih sistema. Na tom predmetu nadovezali smo na osnovne stvari iz predmeta “Uvod u programiranje” I uz pomoć svega što smo naučili, uz pomoć našeg profesora Predraga Katanića I asistenta Radeta Božića odvažili smo se da kreiramo jednu veb aplikaciju pod imenom “Vozni park” . Projekat “Vozni park” predstavlja sistem evidencije  podataka o vozilima, vozačima i radnim nalozima koji omogućava efikasno vođenje i upravljanje tim podacima. Ovaj sistem je razvijen koristeći Visual Studio Code kao razvojno okruženje, a implementacija se zasniva na kombinaciji više tehnologija, uključujući Python I FastAPI za razvoj backend-a i HTML, CSS i JavaScript za frontend.
 Cilj ovog projekta je da pruži jednostavno rješenje za administraciju vozila i vozača, sa mogućnošću generisanja radnih naloga na osnovu dostupnih podataka. U sklopu projekta, korišćene su sledeće tehnologije:
 Python i FastAPI: Za razvoj backend-a, FastAPI je korišćen zbog svoje jednostavnosti i mogućnosti izrade API-ja koji efikasno komuniciraju sa bazom podataka. Backend podržava CRUD (Create, Read, Update, Delete) operacije, što omogućava sveobuhvatno upravljanje podacima.
 MySQL: Za čuvanje i upravljanje podacima, MySQL baza je korišćena zbog svoje pouzdanosti i široke upotrebe u industriji.
@@ -135,11 +135,20 @@ class Vozac(Base):
 
 ### Šeme
 Šeme za radne naloge definišu strukturu i validaciju podataka pomoću Pydantica. Klase se kreiraju kao naslednici BaseModel iz Pydantica i predstavljaju modele podataka sa atributima i validacionim pravilima. Enumeracija (StatusRadnogNalogaEnum) definiše tri moguća statusa radnog naloga: otvoren, u toku, i završen. Ovo osigurava da atribut statusa može imati samo dozvoljene vrijednosti. Bazična klasa (RadniNalogBase) sadrži osnovne atribute radnog naloga, uključujući ID vozila i vozača, opis zadatka, datum i vreme izdavanja, rok završavanja i status.
-Klasa za kreiranje (RadniNalogCreate) nasleđuje bazičnu klasu i koristi se za validaciju prilikom kreiranja novih radnih naloga. Klasa za izlazne podatke (RadniNalogOut) dodaje dodatni atribut id i koristi se za povratne podatke prema klijentu. Ova struktura omogućava striktno definisanje i validaciju podataka, čineći aplikaciju sigurnijom i pouzdanijom.
+Klasa za kreiranje (RadniNalogCreate) nasleđuje bazičnu klasu i koristi se za validaciju prilikom kreiranja novih radnih naloga. Klasa za izlazne podatke (RadniNalogOut) dodaje dodatni atribut id i koristi se za povratne podatke prema klijentu. Ova struktura omogućava striktno definisanje i validaciju podataka, čineći aplikaciju sigurnijom i pouzdanijom. Ovdje smo izmjenili da u tabeli radnog naloga ne pise samo id vozila i vozaca vec 
+da na osnovu id-ja vozila i vozaca budu prikazani i ostali podaci vezani za vozilo 
+i vozaca cije id-je koristimo.
 
 _Šema radnog naloga:_
 
 ```python
+from pydantic import BaseModel
+from datetime import datetime
+from enum import Enum
+from typing import Optional
+from schemas.vozac import VozacOut
+from schemas.vozilo import VoziloOut
+
 class StatusRadnogNalogaEnum(str, Enum):
     otvoren = 'otvoren'
     u_toku = 'u toku'
@@ -152,9 +161,16 @@ class RadniNalogBase(BaseModel):
     datum_i_vrijeme_izdavanja: datetime
     rok_zavrsavanja: datetime
     status: StatusRadnogNalogaEnum
+    vozilo: VoziloOut  
+    vozac: VozacOut 
 
-class RadniNalogCreate(RadniNalogBase):
-    pass
+class RadniNalogCreate(BaseModel):
+    vozilo_id: int
+    vozac_id: int
+    opis_zadatka: str
+    datum_i_vrijeme_izdavanja: datetime
+    rok_zavrsavanja: datetime
+    status: StatusRadnogNalogaEnum
 
 class RadniNalogOut(RadniNalogBase):
     id: int
@@ -247,7 +263,7 @@ app.include_router(api_router)
 Frontend je razvijen koristeći kombinaciju tehnologija kao što su HTML, JavaScript (JS) i CSS. HTML se koristi za strukturu i organizaciju sadržaja stranica, dok se JavaScript koristi za dinamičko ažuriranje sadržaja i interakciju sa korisnikom bez osvježavanja stranice.
 
 
-## STRUKTURA FRONTEDA
+## STRUKTURA FRONTENDA
 
 Frontend aplikacija sadrži sledeće komponente:
 1.	HTML fajlovi
@@ -330,7 +346,7 @@ _Primjer html koda za kreiranje combo box-a:_
                             </select>
 ```
 
-Takođe, implementirani su i date pickeri za vozače i vozila, dok su za radne naloge uvedeni date-time pickeri, što olakšava unos tačnih vremena i datuma.
+ Implementirani su i date pickeri za vozače i vozila, dok su za radne naloge uvedeni date-time pickeri, što olakšava unos tačnih vremena i datuma.
 
 _Primjer html koda za kreiranje datetime picker-a:_
 
@@ -438,6 +454,9 @@ myModalEl.addEventListener('hidden.bs.modal', function (event) {
 ```
  
 _Primjer js funkcije za čitanje radnih naloga:_
+U ovoj funkciji smo izmjenili prikaz podataka u tabeli za vozaca, vozilo i nacin 
+prikazivanja datuma. Ranije smo imali prikaz id-ja vozaca i vozila a sada imamo dodatne podatke. Prikaz datuma smo promjenili u drugi vid pomocu alata "toLocaleDateString()" i "toLocaleTimeString()".
+![](images/radni_nalog_table.png)
 
 ```js
 async function getRadniNalog() {
@@ -449,19 +468,21 @@ async function getRadniNalog() {
 
     try {
         // kreiramo red u tabeli
-        let row
+         let row
         const response = await fetch(`http://127.0.0.1:8000/api/radni-nalozi/`)
         const data = await response.json() // niz svih vozila iz baze
+
+        console.log(data)
 
         data.forEach((radni_nalog) => {
             row = `
             <tr>
                 <td>${radni_nalog?.id}</td>
-                <td>${radni_nalog?.vozilo_id}</td>
-                <td>${radni_nalog?.vozac_id}</td>
+                <td>${radni_nalog?.vozilo?.marka + ' ' + radni_nalog?.vozilo?.model}</td>
+                <td>${radni_nalog?.vozac?.ime + ' ' + radni_nalog?.vozac?.prezime}</td>
                 <td>${radni_nalog?.opis_zadatka}</td>
-                <td>${radni_nalog?.datum_i_vrijeme_izdavanja}</td>
-                <td>${radni_nalog?.rok_zavrsavanja}</td>
+                <td>${new Date(radni_nalog?.datum_i_vrijeme_izdavanja).toLocaleDateString() + ' ' + new Date(radni_nalog?.datum_i_vrijeme_izdavanja).toLocaleTimeString()}</td>
+                <td>${new Date (radni_nalog?.rok_zavrsavanja).toLocaleDateString() + ' ' + new Date(radni_nalog?.rok_zavrsavanja).toLocaleTimeString()}</td>
                 <td>${radni_nalog?.status}</td>
                 <td><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                         class="bi bi-pencil" 
@@ -495,6 +516,84 @@ async function getRadniNalog() {
 }
 ```
 
+Takođe implementirane su i dropdown liste u modal radnog naloga te na taj način možemo jednostavnije izabrati vozača i vozilo za kreiranje novog radnog naloga.
+
+_Primjer prikaza dropdown listi iz modala radnog naloga:_
+![](images/dropdownlist_vozac.png)
+![](images/dropdownlist_vozilo.png)
+
+Kod za pravljenje dropdown list kod vozaca i vozila izgleda ovako u fascikli radninalog.html:
+```html
+<select class="form-control" id="vozilo_id">
+                              
+                            </select>
+                            <select class="form-control" id="vozac_id">
+
+                            </select>
+```
+Zatim smo tu funkciju zavrsili u fascikli radninalog.js:
+```js
+async function getVozila() {
+    // popunjavanje selecta sa vozilima
+
+    // selektuje select sa vozilima iz html-a
+    let voziloSelect = document.getElementById("vozilo_id")
+
+    try {
+        const response = await fetch(`http://127.0.0.1:8000/api/vozila/`)
+        const data = await response.json() // niz svih vozila iz baze
+        
+
+        data.forEach((vozilo) => {
+            const option = document.createElement('option');
+            option.value = vozilo.id;
+            option.text = vozilo.marka + ' ' + vozilo.model;
+
+            voziloSelect.appendChild(option)
+
+     
+        })
+
+    } catch (err) {
+    }
+}
+
+async function getVozaci() {
+    // popunjavanje selecta sa vozilima
+
+    // selektuje select sa vozilima iz html-a
+    let vozaciSelect = document.getElementById("vozac_id")
+
+    try {
+        const response = await fetch(`http://127.0.0.1:8000/api/vozaci/`)
+        const data = await response.json() // niz svih vozila iz baze
+        
+
+        data.forEach((vozac) => {
+            const option = document.createElement('option');
+            option.value = vozac.id;
+            option.text = vozac.ime + ' ' + vozac.prezime;
+
+            vozaciSelect.appendChild(option)
+
+     
+        })
+
+    } catch (err) {
+    }
+}
+```
+Bitno je bilo da se u ove liste stave odgovarajuce Ip adrese odgovarajucih APi-ja.
+
+
+
+
+
+
+
+
+
+
 
 # BAZA PODATAKA
 
@@ -514,5 +613,5 @@ Docker je alat za kontejnerizaciju koji omogućava pakovanje i izvršavanje apli
 
 # ZAKLJUČAK
 
-U ovom seminarskom radu smo istražili razvoj aplikacije “Vozni Park” kroz implementaciju backend, frontend i Docker infrastrukture. Korišćenjem odgovarajućih tehnologija za manipulaciju podacima o vozilima, vozačima i generisanje radnih naloga, omogućili smo efikasno upravljanje evidencijom. Implementirali smo osnovne operacije za manipulaciju podacima, a testiranje je potvrdilo ispravnost i kvalitet koda. Kroz ovaj projekat, stekli smo dragoceno iskustvo u primeni savremenih tehnologija za razvoj softvera.
+U ovom seminarskom radu smo istražili razvoj aplikacije “Vozni Park” kroz implementaciju backend, frontend i Docker infrastrukture. Korišćenjem odgovarajućih tehnologija za manipulaciju podacima o vozilima, vozačima i generisanje radnih naloga, omogućili smo efikasno upravljanje evidencijom. Implementirali smo osnovne operacije za manipulaciju podacima, a testiranje je potvrdilo ispravnost i kvalitet koda. Kroz ovaj projekat, timsku saradnju svih kolega iz grupe koja je pogadjala nastavu, kao i uvijek raspolozive pomoci profesora stekli smo dragocjeno iskustvo u primeni savremenih tehnologija za razvoj softvera.
 
